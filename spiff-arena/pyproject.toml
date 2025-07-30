@@ -1,0 +1,27 @@
+[project]
+name = "spiffworkflow-arena"
+version = "0.0.0"
+description = "Spiffworkflow Arena"
+authors = ["Jason Lantz <sartography@users.noreply.github.com>"]
+license = "LGPL"
+readme = "README.md"
+homepage = "https://github.com/sartography/spiffworkflow-arena"
+package-mode = false
+repository = "https://github.com/sartography/spiffworkflow-arena"
+classifiers = [
+    "Development Status :: 4 - Beta",
+]
+
+requires-python = ">=3.11,<3.13"
+
+[dependency-groups]
+dev = [
+    "pre-commit",
+    "pre-commit-hooks",
+    "ruff",
+]
+
+[tool.uv.workspace]
+members = [
+    "spiff-arena-common",
+]

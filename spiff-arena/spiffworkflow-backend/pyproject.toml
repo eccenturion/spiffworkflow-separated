@@ -1,0 +1,235 @@
+[project]
+name = "spiffworkflow-backend"
+version = "0.0.0"
+description = "Spiffworkflow Backend"
+license = "LGPL-2.1"
+readme = "README.rst"
+classifiers = [
+    "Development Status :: 4 - Beta",
+]
+requires-python = ">=3.10"
+
+authors = [{ name = "Sartography", email = "sartography@users.noreply.github.com" }]
+
+urls = { homepage = "https://spiffworkflow.org", repository = "https://github.com/sartography/spiff-arena", documentation = "https://spiff-arena.readthedocs.io" }
+
+dependencies = [
+    "flask == 3.1.1",
+    "flask-admin >=1.5.8",
+    "flask-bcrypt >=0.7.1",
+    "flask-cors >=3.0.10",
+    "flask-jwt-extended >=4.7.1",
+    "flask-migrate >=4.0.0",
+    "flask-restful >=0.3.9",
+    "SpiffWorkflow",
+    "sentry-sdk[flask] >=2.26",
+    "psycopg2 >= 2.9.10, <2.10",
+    "typing-extensions >= 4.12.2",
+    "spiffworkflow-connector-command",
+    "werkzeug >= 2.3",
+    "connexion[swagger-ui, flask, uvicorn] >= 3",
+    "lxml >= 5.3.1",
+    "PyJWT >= 2.10.1",
+    "APScheduler >=3.6.0",
+    "Jinja2 >= 3.1.6",
+    "RestrictedPython >= 8.0",
+    "Flask-SQLAlchemy >= 3",
+    "uvicorn[standard] >= 0.30.1",
+    # https://github.com/dropbox/sqlalchemy-stubs/pull/251
+    # someday get off github
+    # sqlalchemy-stubs = "^0.4"
+    # sqlalchemy-stubs = { git = "https://github.com/dropbox/sqlalchemy-stubs.git", rev = "master" }
+    # sqlalchemy-stubs = {develop = true, path = "/Users/kevin/projects/github/sqlalchemy-stubs"}
+    # for now use my fork
+    "sqlalchemy-stubs",
+    "simplejson >= 3.20.1",
+    "pytz >= 2025.2",
+    "dateparser >= 1.2.0",
+    "cryptography >= 44.0",
+    "prometheus-flask-exporter >= 0.23.1",
+    "sqlalchemy >= 2.0.31",
+    # mysqlclient lib is deemed better than the mysql-connector-python lib by sqlalchemy
+    # https://docs.sqlalchemy.org/en/20/dialects/mysql.html#module-sqlalchemy.dialects.mysql.mysqlconnector
+    "mysqlclient >= 2.2.6",
+    "flask-session >= 0.8.0",
+    "celery[redis, sqs] >= 5.4.0",
+    # TODO
+    #boto3 = {version = "^1.3.0", optional = true}
+    "celery-stubs >= 0.1.3",
+    "jsonschema >= 4.23.0",
+    "chardet >= 5.2.0",
+    # 1.3.0 adds an print statement that keeps printing None
+    # https://github.com/pixee/python-security/blob/6256809dac1c45530e5eeef8b48032a2bbd6b7d6/src/security/safe_command/api.py#L640
+    "security >= 1.3.1",
+    "spiff-arena-common>=0.1.0",
+    "authlib>=1.6.0",
+    "starlette>=0.47.1",
+    "uvicorn-worker>=0.3.0",
+]
+
+[dependency-groups]
+dev = [
+    "coverage[toml] >= 7.7",
+    "safety >= 3.2.14",
+    "mypy >= 0.961",
+    "typeguard >= 4",
+    "xdoctest[colors] >= 1.2.0",
+    "pre-commit >= 4.0.1",
+    "ruff >= 0.11.5",
+    "pytest-random-order >= 1.1.0",
+    "pytest-flask-sqlalchemy >= 1.1.0",
+    "pytest-xdist == 3.6.1",
+    "bandit == 1.8.3",
+    "pre-commit-hooks >= 5.0.0",
+    "Pygments >= 2.19.1",
+    # type hinting stuff
+    "types-Flask >= 1.1.6",
+    "types-PyYAML >= 6.0.12",
+    "types-Werkzeug >= 1.0.9",
+    "types-authlib>=1.5.0.20250608",
+    "types-dateparser >= 1.2.0.20250208",
+    "types-pytz >= 2024.2.0",
+    "types-requests >= 2.32.0",
+    "pytest>=8.3.5",
+    "setuptools>=78.1.1",
+]
+
+[tool.uv.sources]
+SpiffWorkflow = { git = "https://github.com/sartography/SpiffWorkflow", branch = "main" }
+spiffworkflow-connector-command = { git = "https://github.com/sartography/spiffworkflow-connector-command.git", branch = "main" }
+sqlalchemy-stubs = { git = "https://github.com/burnettk/sqlalchemy-stubs.git", branch = "scoped-session-delete" }
+
+[tool.uv]
+package = true
+
+[project.scripts]
+spiffworkflow-backend = "spiffworkflow_backend.__main__:main"
+
+[tool.pytest.ini_options]
+# ignore deprecation warnings from various packages that we don't control
+filterwarnings = [
+    # note the use of single quote below to denote "raw" strings in TOML
+    # kombu/utils/compat.py:82
+    'ignore:SelectableGroups dict interface is deprecated. Use select.',
+    'ignore:distutils Version classes are deprecated. Use packaging.version instead.',
+    # connexion/json_schema.py:17
+    'ignore:jsonschema.exceptions.RefResolutionError is deprecated as of version 4.18.0',
+    'ignore:jsonschema.RefResolver is deprecated as of v4.18.0',
+    # connexion/spec.py:50
+    'ignore:Passing a schema to Validator.iter_errors is deprecated and will be removed in a future release',
+    # connexion/decorators/validation.py:16
+    'ignore:Accessing jsonschema.draft4_format_checker is deprecated and will be removed in a future release.',
+    # connexion/apis/flask_api.py:236
+    "ignore:'_request_ctx_stack' is deprecated and will be removed in Flask 2.3",
+    "ignore:Setting 'json_encoder' on the app or a blueprint is deprecated and will be removed in Flask 2.3",
+    "ignore:'JSONEncoder' is deprecated and will be removed in Flask 2.3",
+    "ignore:'app.json_encoder' is deprecated and will be removed in Flask 2.3",
+    # SpiffWorkflow/bpmn/PythonScriptEngineEnvironment.py
+    'ignore:The usage of Box has been deprecated',
+    # dateutil/tz/tz.py:37
+    'ignore:datetime\.datetime\.utcfromtimestamp\(\) is deprecated:DeprecationWarning',
+]
+pythonpath = ["src", "tests"]
+
+[tool.coverage.paths]
+source = ["src", "*/site-packages"]
+tests = ["tests", "*/tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["spiffworkflow_backend", "tests"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 80
+
+[tool.mypy]
+strict = true
+disallow_any_generics = false
+warn_unreachable = true
+pretty = true
+show_column_numbers = true
+show_error_codes = true
+show_error_context = true
+plugins = "sqlmypy"
+
+# We get 'error: Module has no attribute "set_context"' for sentry-sdk without this option
+implicit_reexport = true
+
+# allow for subdirs to NOT require __init__.py
+namespace_packages = true
+explicit_package_bases = false
+
+[[tool.mypy.overrides]]
+module = "connexion.*"
+ignore_missing_imports = true
+
+# [tool.pyright]
+# Pyright: Import "flask" could not be resolved
+#   ultimately resolved by creating a pyrightconfig.json file with venv and venvPath
+# Pyright: "hey" is not accessed
+#   See: https://github.com/microsoft/pyright/discussions/3929#discussioncomment-5434231
+#   "Those are not warnings" and cannot be turned off like this:
+#     reportUnusedVariable = false
+#   solution was https://www.reddit.com/r/neovim/comments/11k5but/comment/jbjwwtf in vim settings
+
+
+# for editor support like vim
+[tool.ruff]
+lint.select = [
+  # "ANN", # flake8-annotations
+  "ASYNC", # flake8-async
+  "B",   # flake8-bugbear
+  # "BLE", # flake8-blind-except
+  "C",   # mccabe
+  # "D",   # pydocstyle
+  "E",   # pycodestyle error
+  # "ERA",  # eradicate
+  "F",   # pyflakes
+  # "FBT", # flake8-boolean-trap
+  "N",   # pep8-naming
+  "PL",  # pylint
+  "S",   # flake8-bandit
+  "T",   # flake8-print
+  "UP",  # pyupgrade
+  "W",   # pycodestyle warning
+  "I",   # isort
+  "YTT",  # flake8-2020
+]
+
+lint.ignore = [
+  "C901",  # "complexity" category
+  "PLR",  # "refactoring" category has "too many lines in method" type stuff
+  "PLC1901",
+  "PLE1205"  # saw this Too many arguments for `logging` format string give a false positive once
+]
+
+line-length = 130
+
+# target python 3.10
+target-version = "py310"
+
+exclude = [
+  "migrations",
+  "bin/load_test_message_start_event.py"
+]
+
+[tool.ruff.lint.per-file-ignores]
+"migrations/versions/*.py" = ["E501"]
+"tests/**/*.py" = ["PLR2004", "S101"]  # PLR2004 is about magic vars, S101 allows assert
+"bin/*.py" = ["T"]  # it's ok to print things in scripts
+
+[tool.ruff.lint.isort]
+force-single-line = true
+
+# pip install fixit && fixit fix -a src
+[tool.fixit]
+disable = [
+    "fixit.rules:CompareSingletonPrimitivesByIs",
+]
+
+[tool.safety]
+# you can generate a config file for safety, but this doesn't work with safety check.
+# it complains about the config file being in too new a format.
+# you have to use safety scan, which requires a login.
+# so in the meantime, we're ignoring an unfixable issue in ./bin/run_ci_session itself

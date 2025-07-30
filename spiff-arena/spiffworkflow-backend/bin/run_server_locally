@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+
+function error_handler() {
+  echo >&2 "Exited with BAD EXIT CODE '${2}' in ${0} script at line: ${1}."
+  exit "$2"
+}
+trap 'error_handler ${LINENO} $?' ERR
+set -o errtrace -o errexit -o nounset -o pipefail
+
+script_dir="$(
+  cd -- "$(dirname "$0")" >/dev/null 2>&1
+  pwd -P
+)"
+. "${script_dir}/local_development_environment_setup"
+
+server_type="${1:-api}"
+
+if [[ "$server_type" == "celery_worker" ]]; then
+  exec "${script_dir}/start_celery_worker"
+else
+  if [[ -n "${SPIFFWORKFLOW_BACKEND_LOAD_FIXTURE_DATA:-}" || -n "${SPIFFWORKFLOW_BACKEND_WSGI_PATH_PREFIX:-}" ]]; then
+    echo "using ./bin/boot_server_in_docker because we actually load fixture data in wsgi.py, which will not be run with the typical local dev flask server"
+    exec "${script_dir}/boot_server_in_docker"
+  else
+
+    if [[ "${SPIFFWORKFLOW_BACKEND_RUN_DATA_SETUP:-}" != "false" ]]; then
+      SPIFFWORKFLOW_BACKEND_RUN_BACKGROUND_SCHEDULER_IN_CREATE_APP=false uv run python bin/save_all_bpmn.py
+    fi
+    if [[ -z "${UVICORN_LOG_LEVEL:-}" ]]; then
+      UVICORN_LOG_LEVEL=debug
+    fi
+
+    # this line blocks
+    exec uv run uvicorn spiff_web_server:connexion_app \
+      --reload \
+      --host "0.0.0.0" \
+      --port "$PORT" \
+      --workers "1" \
+      --log-level "$UVICORN_LOG_LEVEL"
+  fi
+fi

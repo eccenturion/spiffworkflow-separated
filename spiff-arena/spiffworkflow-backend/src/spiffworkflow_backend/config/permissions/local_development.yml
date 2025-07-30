@@ -1,0 +1,73 @@
+users:
+  admin:
+    service: local_open_id
+    email: admin@example.com
+    password: admin
+    preferred_username: Admin
+  jason:
+    service: local_open_id
+    email: jason@example.com
+    password: jason
+    preferred_username: Jason
+  kevin:
+    service: local_open_id
+    email: kevin@example.com
+    password: kevin
+    preferred_username: Kevin
+  nelson:
+    service: local_open_id
+    email: nelson@example.com
+    password: nelson
+    preferred_username: Nelson
+  dan:
+    service: local_open_id
+    email: dan@example.com
+    password: dan
+    preferred_username: dan
+  jon:
+    service: local_open_id
+    email: jon@example.com
+    password: jon
+    preferred_username: jon
+groups:
+  admin:
+    users: [admin@example.com, nelson@example.com]
+  group1:
+    users: [jason@example.com, kevin@example.com]
+  group2:
+    users: [dan@example.com]
+  group3:
+    users: [jon@example.com]
+  spiff_public:
+    users: []
+
+permissions:
+  admin:
+    groups: [admin, group1]
+    actions: [create, read, update, delete]
+    uri: /*
+
+  basic:
+    groups: [group2, group3]
+    actions: [all]
+    uri: BASIC
+
+  basic-read:
+    groups: [group2]
+    actions: [read]
+    uri: PG:ALL
+
+  pm-read:
+    groups: [group3]
+    actions: [read]
+    uri: PM:site-administration:set-permissions
+
+  pm-start:
+    groups: [group2]
+    actions: [start]
+    uri: PM:misc:category_number_one:workflow_one
+
+  public_access:
+    groups: [spiff_public]
+    actions: [read, create, update]
+    uri: /public/*

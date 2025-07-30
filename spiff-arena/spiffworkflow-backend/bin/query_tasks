@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+function error_handler() {
+  echo >&2 "Exited with BAD EXIT CODE '${2}' in ${0} script at line: ${1}."
+  exit "$2"
+}
+trap 'error_handler ${LINENO} $?' ERR
+set -o errtrace -o errexit -o nounset -o pipefail
+
+# db_name=spiffworkflow_backend_unit_testing
+db_name=spiffworkflow_backend_local_development
+
+mysql -uroot "$db_name" -e '
+  select * from process_instance;
+
+  select t.guid as task_guid, t.state as task_state, td.bpmn_identifier as task_id, td.typename, t.properties_json from task t
+  join task_definition td on td.id = t.task_definition_id
+  where process_instance_id=(select max(id) from process_instance)
+  order by td.bpmn_identifier;
+
+  # select bp.guid as bp_guid, bpd.bpmn_identifier as bp_identifier, bp.properties_json from bpmn_process bp
+  # join bpmn_process_definition bpd on bpd.id = bp.bpmn_process_definition_id
+  # join bpmn_process bpb on bpb.id = bp.direct_parent_process_id
+  # join process_instance pi on bpb.id = pi.bpmn_process_id
+  # where pi.id = (select max(id) from process_instance);
+'
+
+# mysql -uroot spiffworkflow_backend_local_development -e '\
+#   select * from task where guid="c40c3b06-4f49-4fa2-83e2-ba13776402a7"; \
+#   select * from bpmn_process; \
+# '

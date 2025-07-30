@@ -1,0 +1,50 @@
+users:
+  testadmin1:
+    service: https://testing/openid/thing
+    email: testadmin1@example.com
+    password: admin
+    preferred_username: El administrador de la muerte
+
+groups:
+  admin:
+    users: [testadmin1, testadmin2]
+
+  Finance Team:
+    users: [testuser1, testuser2]
+
+  hr:
+    users: [testuser2, testuser3, testuser4]
+
+permissions:
+  process-groups-all:
+    groups: [admin]
+    actions: [all]
+    uri: PG:ALL
+  basic:
+    groups: [admin]
+    actions: [all]
+    uri: BASIC
+  elevated-operations:
+    groups: [admin]
+    actions: [all]
+    uri: ELEVATED
+
+  basic-permission:
+    groups: [everybody]
+    actions: [all]
+    uri: BASIC
+
+  finance-admin-group:
+    groups: ["Finance Team"]
+    actions: [all]
+    uri: PG:finance
+
+  finance-hr-start:
+    groups: ["hr"]
+    actions: [start]
+    uri: PG:finance
+
+  read-all-finance:
+    groups: [hr]
+    actions: [read]
+    uri: PG:finance

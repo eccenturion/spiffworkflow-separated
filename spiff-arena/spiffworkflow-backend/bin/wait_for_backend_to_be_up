@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+function error_handler() {
+  echo >&2 "Exited with BAD EXIT CODE '${2}' in ${0} script at line: ${1}."
+  exit "$2"
+}
+trap 'error_handler ${LINENO} $?' ERR
+set -o errtrace -o errexit -o nounset -o pipefail
+
+max_attempts="${1:-100}"
+port="${2:-7000}"
+
+attempts=0
+backend_base_url="http://localhost:${port}"
+echo "waiting for backend to come up at ${backend_base_url} ..."
+while [[ "$(curl -s -o /dev/null -w '%{http_code}' "${backend_base_url}/v1.0/status")" != "200" ]]; do
+  if [[ "$attempts" -gt "$max_attempts" ]]; then
+    echo >&2 "ERROR: Server not up after $max_attempts attempts. There is probably a problem"
+    exit 1
+  fi
+  attempts=$((attempts + 1))
+  sleep 1
+done
+
+echo "backend up"

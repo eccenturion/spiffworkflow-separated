@@ -1,0 +1,57 @@
+repos:
+  - repo: local
+    hooks:
+      - id: check-added-large-files
+        files: ^spiffworkflow-backend/
+        name: Check for added large files
+        entry: check-added-large-files
+        language: system
+      - id: check-toml
+        files: ^spiffworkflow-backend/
+        name: Check Toml
+        entry: check-toml
+        language: system
+        types: [toml]
+      - id: check-yaml
+        files: ^spiffworkflow-backend/
+        name: Check Yaml
+        entry: check-yaml
+        language: system
+        types: [yaml]
+      - id: end-of-file-fixer
+        files: ^spiffworkflow-backend/
+        name: Fix End of Files
+        entry: end-of-file-fixer
+        language: system
+        types: [text]
+        stages: [pre-commit, pre-push, manual]
+      - id: ruff-check
+        args: [check, --fix]
+        files: ^spiffworkflow-backend/
+        name: ruff
+        entry: ruff
+        language: system
+        types: [python]
+        require_serial: true
+        # this is also specified in spiffworkflow-backend/pyproject.toml but we run pre-commit
+        # with all-files which ignores that
+        exclude: "/migrations/|bin/load_test_message_start_event.py"
+      - id: ruff-format
+        args: [format]
+        files: ^spiffworkflow-backend/
+        name: ruff
+        entry: ruff
+        language: system
+        types: [python]
+        require_serial: true
+        # this is also specified in spiffworkflow-backend/pyproject.toml but we run pre-commit
+        # with all-files which ignores that
+        exclude: "/migrations/"
+      - id: trailing-whitespace
+        files: ^spiffworkflow-backend/
+        name: Trim Trailing Whitespace
+        entry: trailing-whitespace-fixer
+        language: system
+        types: [text]
+        stages: [pre-commit, pre-push, manual]
+        exclude: "/migrations/"

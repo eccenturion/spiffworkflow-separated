@@ -1,0 +1,21 @@
+groups:
+  admin:
+    users: [admin@example.com]
+
+permissions:
+  process-groups-ro:
+    groups: [admin]
+    actions: [read]
+    uri: PG:ALL
+  basic:
+    groups: [admin]
+    actions: [all]
+    uri: BASIC
+  elevated-operations:
+    groups: [admin]
+    actions: [all]
+    uri: ELEVATED
+  process-model-publish:
+    groups: [admin]
+    actions: [create]
+    uri: /process-model-publish/*

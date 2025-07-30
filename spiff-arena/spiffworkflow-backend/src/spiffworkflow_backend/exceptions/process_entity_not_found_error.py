@@ -1,0 +1,2 @@
+class ProcessEntityNotFoundError(Exception):
+    pass

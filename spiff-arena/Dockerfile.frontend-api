@@ -1,0 +1,150 @@
+# Multi-stage Dockerfile para Frontend + Backend API
+# Usar imagen pre-construida del frontend para evitar errores de build
+FROM ghcr.io/sartography/spiffworkflow-frontend:latest AS frontend-build
+
+# Imagen final con Backend + Frontend construido
+FROM python:3.11-slim
+
+# Instalar dependencias del sistema
+RUN apt-get update && apt-get install -y \
+      curl \
+    git \
+    postgresql-client \
+    libpq-dev \
+    pkg-config \
+    python3-dev \
+    default-libmysqlclient-dev \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Crear usuario para la aplicación con directorio home
+RUN useradd -r -m -s /bin/false spiffworkflow
+
+# Configurar directorio de trabajo
+WORKDIR /app
+
+# Configurar variables de entorno para uv
+ENV UV_CACHE_DIR=/app/.uv-cache
+ENV UV_PROJECT_ENVIRONMENT=/app/.venv
+
+# Instalar uv (gestor de paquetes moderno)
+RUN pip install uv
+
+# Copiar pyproject.toml para dependencias
+COPY spiffworkflow-backend/pyproject.toml ./
+# Copiar uv.lock si existe (opcional pero recomendado)
+COPY spiffworkflow-backend/uv.lock* ./
+
+# Instalar dependencias Python usando uv
+RUN uv sync --frozen || uv sync
+
+# Agregar psycopg2 para PostgreSQL si no está en pyproject.toml
+RUN uv add psycopg2-binary --no-sync || echo "psycopg2-binary already installed or added"
+
+# Copiar código del backend
+COPY spiffworkflow-backend/ ./
+
+# Copiar frontend construido desde la imagen oficial
+COPY --from=frontend-build /usr/share/nginx/html ./static/
+
+# Crear directorios necesarios
+RUN mkdir -p /app/process_models /app/logs /app/.uv-cache
+
+# Ajustar permisos
+RUN chown -R spiffworkflow:spiffworkflow /app && \
+    chown -R spiffworkflow:spiffworkflow /home/spiffworkflow
+
+# Script de inicio que maneja tanto frontend como backend API
+COPY <<'EOF' /app/start.sh
+#!/bin/bash
+set -e
+
+echo "Starting Frontend + Backend API container..."
+
+# Verificar conexión a PostgreSQL
+echo "Waiting for PostgreSQL to be ready..."
+until pg_isready -h postgres -p 5432 -U spiffworkflow; do
+    echo "PostgreSQL is unavailable - sleeping"
+    sleep 1
+done
+echo "PostgreSQL is ready!"
+
+# Crear base de datos si no existe
+echo "Setting up database..."
+export UV_CACHE_DIR=/app/.uv-cache
+export UV_PROJECT_ENVIRONMENT=/app/.venv
+uv run python -c "
+import os
+import psycopg2
+from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+
+try:
+    conn = psycopg2.connect(
+        host='postgres',
+        user='spiffworkflow',
+        password=os.environ.get('POSTGRES_PASSWORD', 'spiffworkflow_password'),
+        database='postgres'
+    )
+    conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+    cursor = conn.cursor()
+    cursor.execute('CREATE DATABASE spiffworkflow_backend')
+    print('Database created successfully')
+except psycopg2.errors.DuplicateDatabase:
+    print('Database already exists')
+except Exception as e:
+    print(f'Database setup: {e}')
+finally:
+    if 'conn' in locals():
+        conn.close()
+"
+
+# Ejecutar migraciones de DB si es necesario
+if [ "${SPIFFWORKFLOW_BACKEND_UPGRADE_DB}" = "true" ]; then
+    echo "Running database migrations..."
+    export UV_CACHE_DIR=/app/.uv-cache
+    export UV_PROJECT_ENVIRONMENT=/app/.venv
+    uv run flask db upgrade || echo "Migration completed or not needed"
+fi
+
+# Servir archivos estáticos del frontend usando nginx o servidor HTTP simple
+echo "Starting static file server for frontend..."
+cd /app/static
+python -m http.server ${SPIFFWORKFLOW_FRONTEND_PORT:-8001} &
+FRONTEND_PID=$!
+
+# Cambiar de vuelta al directorio de la aplicación
+cd /app
+
+# Iniciar el backend API (sin background scheduler)
+echo "Starting backend API server..."
+export SPIFFWORKFLOW_BACKEND_RUN_BACKGROUND_SCHEDULER_IN_CREATE_APP=false
+export UV_CACHE_DIR=/app/.uv-cache
+export UV_PROJECT_ENVIRONMENT=/app/.venv
+uv run flask run --host=0.0.0.0 --port=${SPIFF_BACKEND_PORT:-8000} &
+BACKEND_PID=$!
+
+# Función para limpiar procesos al recibir señal de terminación
+cleanup() {
+    echo "Shutting down..."
+    kill $FRONTEND_PID $BACKEND_PID 2>/dev/null || true
+    wait
+    exit 0
+}
+
+# Configurar manejo de señales
+trap cleanup SIGTERM SIGINT
+
+# Esperar a que los procesos terminen
+wait
+EOF
+
+RUN chmod +x /app/start.sh
+
+# Exponer puertos
+EXPOSE 8000 8001
+
+# Cambiar al usuario de aplicación
+USER spiffworkflow
+
+# Comando de inicio
+CMD ["/app/start.sh"]

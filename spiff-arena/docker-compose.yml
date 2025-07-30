@@ -1,0 +1,134 @@
+# version: "3.8"
+
+services:
+  # 1. Base de datos PostgreSQL 17
+  postgres:
+    container_name: spiffworkflow-postgres
+    image: postgres:17
+    environment:
+      POSTGRES_DB: spiffworkflow_backend
+      POSTGRES_USER: spiffworkflow
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-spiffworkflow_password}"
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U spiffworkflow -d spiffworkflow_backend"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  # 2. Frontend + Backend API (sin background processing)
+  spiffworkflow-frontend-api:
+    container_name: spiffworkflow-frontend-api
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Variables del Frontend
+      APPLICATION_ROOT: "/"
+      PORT0: "${SPIFFWORKFLOW_FRONTEND_PORT:-8001}"
+      
+      # IMPORTANTE: Configuración para Frontend+API
+      SPIFFWORKFLOW_BACKEND_RUN_API_ENDPOINTS: "true"
+      SPIFFWORKFLOW_BACKEND_RUN_BACKGROUND_SCHEDULER_IN_CREATE_APP: "false"
+      
+      # Variables del Backend API
+      SPIFFWORKFLOW_BACKEND_ENV: "local_docker"
+      FLASK_DEBUG: "0"
+      FLASK_SESSION_SECRET_KEY: "${FLASK_SESSION_SECRET_KEY:-super_secret_key}"
+      SPIFFWORKFLOW_BACKEND_URL: "http://localhost:${SPIFF_BACKEND_PORT:-8000}"
+      SPIFFWORKFLOW_BACKEND_BPMN_SPEC_ABSOLUTE_DIR: "/app/process_models"
+      SPIFFWORKFLOW_BACKEND_CONNECTOR_PROXY_URL: "${SPIFFWORKFLOW_BACKEND_CONNECTOR_PROXY_URL:-http://spiffworkflow-connector:8004}"
+      
+      # Configuración PostgreSQL
+      SPIFFWORKFLOW_BACKEND_DATABASE_TYPE: "postgres"
+      SPIFFWORKFLOW_BACKEND_DATABASE_URI: "postgresql://spiffworkflow:${POSTGRES_PASSWORD:-spiffworkflow_password}@postgres:5432/spiffworkflow_backend"
+      
+      SPIFFWORKFLOW_BACKEND_LOAD_FIXTURE_DATA: "false"
+      SPIFFWORKFLOW_BACKEND_LOG_LEVEL: "DEBUG"
+      SPIFFWORKFLOW_BACKEND_OPEN_ID_CLIENT_ID: "spiffworkflow-backend"
+      SPIFFWORKFLOW_BACKEND_OPEN_ID_CLIENT_SECRET_KEY: "my_open_id_secret_key"
+      SPIFFWORKFLOW_BACKEND_OPEN_ID_SERVER_URL: "http://localhost:${SPIFF_BACKEND_PORT:-8000}/openid"
+      SPIFFWORKFLOW_BACKEND_PERMISSIONS_FILE_NAME: "example.yml"
+      SPIFFWORKFLOW_BACKEND_PORT: "${SPIFF_BACKEND_PORT:-8000}"
+      SPIFFWORKFLOW_BACKEND_UPGRADE_DB: "true"
+      SPIFFWORKFLOW_BACKEND_URL_FOR_FRONTEND: "http://localhost:${SPIFFWORKFLOW_FRONTEND_PORT:-8001}"
+    ports:
+      - "${SPIFFWORKFLOW_FRONTEND_PORT:-8001}:${SPIFFWORKFLOW_FRONTEND_PORT:-8001}/tcp"  # Frontend
+      - "${SPIFF_BACKEND_PORT:-8000}:${SPIFF_BACKEND_PORT:-8000}/tcp"  # Backend API
+    volumes:
+      - ${SPIFFWORKFLOW_BACKEND_LOCAL_BPMN_SPEC_DIR:-./process_models}:/app/process_models
+    healthcheck:
+      test: "curl localhost:${SPIFF_BACKEND_PORT:-8000}/v1.0/status --fail"
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  # 3. Backend para Background Processing únicamente
+  spiffworkflow-background:
+    container_name: spiffworkflow-background
+    image: ghcr.io/sartography/spiffworkflow-backend:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+      spiffworkflow-frontend-api:
+        condition: service_healthy
+    environment:
+      SPIFFWORKFLOW_BACKEND_ENV: "local_docker"
+      FLASK_DEBUG: "0"
+      FLASK_SESSION_SECRET_KEY: "${FLASK_SESSION_SECRET_KEY:-super_secret_key}"
+      SPIFFWORKFLOW_BACKEND_BPMN_SPEC_ABSOLUTE_DIR: "/app/process_models"
+      SPIFFWORKFLOW_BACKEND_CONNECTOR_PROXY_URL: "${SPIFFWORKFLOW_BACKEND_CONNECTOR_PROXY_URL:-http://spiffworkflow-connector:8004}"
+      
+      # IMPORTANTE: Configuración para solo Background Processing
+      SPIFFWORKFLOW_BACKEND_RUN_API_ENDPOINTS: "false"
+      SPIFFWORKFLOW_BACKEND_RUN_BACKGROUND_SCHEDULER_IN_CREATE_APP: "true"
+      
+      # Configuración PostgreSQL (misma BD que API)
+      SPIFFWORKFLOW_BACKEND_DATABASE_TYPE: "postgres"
+      SPIFFWORKFLOW_BACKEND_DATABASE_URI: "postgresql://spiffworkflow:${POSTGRES_PASSWORD:-spiffworkflow_password}@postgres:5432/spiffworkflow_backend"
+      
+      SPIFFWORKFLOW_BACKEND_LOAD_FIXTURE_DATA: "false"
+      SPIFFWORKFLOW_BACKEND_LOG_LEVEL: "DEBUG"
+      SPIFFWORKFLOW_BACKEND_OPEN_ID_CLIENT_ID: "spiffworkflow-backend"
+      SPIFFWORKFLOW_BACKEND_OPEN_ID_CLIENT_SECRET_KEY: "my_open_id_secret_key"
+      SPIFFWORKFLOW_BACKEND_OPEN_ID_SERVER_URL: "http://localhost:${SPIFF_BACKEND_PORT:-8000}/openid"
+      SPIFFWORKFLOW_BACKEND_PERMISSIONS_FILE_NAME: "example.yml"
+      SPIFFWORKFLOW_BACKEND_UPGRADE_DB: "false"  # La API ya se encarga de esto
+    volumes:
+      - ${SPIFFWORKFLOW_BACKEND_LOCAL_BPMN_SPEC_DIR:-./process_models}:/app/process_models
+    restart: unless-stopped
+
+  # Connector Proxy (sin cambios)
+  spiffworkflow-connector:
+    container_name: spiffworkflow-connector
+    image: ghcr.io/sartography/connector-proxy-demo:latest
+    environment:
+      FLASK_ENV: "${FLASK_ENV:-development}"
+      FLASK_DEBUG: "0"
+      FLASK_SESSION_SECRET_KEY: "${FLASK_SESSION_SECRET_KEY:-super_secret_key}"
+      CONNECTOR_PROXY_PORT: "${SPIFF_CONNECTOR_PORT:-8004}"
+    ports:
+      - "${SPIFF_CONNECTOR_PORT:-8004}:${SPIFF_CONNECTOR_PORT:-8004}/tcp"
+    healthcheck:
+      test: "curl localhost:${SPIFF_CONNECTOR_PORT:-8004}/liveness --fail"
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  default:
+    name: spiffworkflow-network

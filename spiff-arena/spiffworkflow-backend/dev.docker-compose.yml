@@ -1,0 +1,20 @@
+
+services:
+  spiffworkflow-backend:
+    build:
+      context: spiffworkflow-backend
+      dockerfile: dev.Dockerfile
+    user: "${RUN_AS}"
+    environment:
+      FLASK_DEBUG: "1"
+      POETRY_VIRTUALENVS_IN_PROJECT: "true"
+      SPIFFWORKFLOW_BACKEND_DATABASE_URI: ""
+      SPIFFWORKFLOW_BACKEND_LOG_LEVEL: "INFO"
+      SPIFFWORKFLOW_BACKEND_ENV: "${SPIFFWORKFLOW_BACKEND_ENV:-local_development}"
+      SPIFFWORKFLOW_BACKEND_LOAD_FIXTURE_DATA: ""
+      XDG_CACHE_HOME: "/app/.cache"
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ./spiffworkflow-backend:/app
